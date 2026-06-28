@@ -51,6 +51,10 @@
 
 #include "devices.h"
 
+/**
+ * @brief Base class for BMP580 sensor interface.
+ * This class provides methods to interact with the BMP580 sensor over I2C or SPI.
+ */
 class BMP580_InterfaceBase
 {
 public:
@@ -71,6 +75,10 @@ public:
     uint8_t ReadReg(uint8_t reg);
 };
 
+/**
+ * @brief BMP580 I2C interface implementation.
+ * This class provides methods to communicate with the BMP580 sensor over I2C.
+ */
 class BMP580_I2C_Interface : public BMP580_InterfaceBase
 {
 public:
@@ -90,6 +98,10 @@ private:
     I2C_DeviceBase& device_;
 };
 
+/**
+ * @brief BMP580 SPI interface implementation.
+ * This class provides methods to communicate with the BMP580 sensor over SPI.
+ */
 class BMP580_SPI_Interface : public BMP580_InterfaceBase
 {
 public:
@@ -109,15 +121,39 @@ private:
     SPI_DeviceBase& device_;
 };
 
+/**
+ * @brief BMP580 sensor base class.
+ * This class provides methods to initialize the sensor,
+ * configure oversampling and data rate,
+ * read raw data, and check data readiness.
+ */
 class BMP580_Base
 {
 public:
     explicit BMP580_Base(BMP580_InterfaceBase& ifs) : ifs_(ifs) {}
     virtual ~BMP580_Base() = default;
 
+    /**
+     * @brief Reset the BMP580 sensor.
+     * This method sends a soft reset command to the sensor.
+     * @note After calling this method, it is recommended to wait
+     * for a short period before re-initializing the sensor.
+     */
     void Reset();
+
+    /**
+     * @brief Initialize the BMP580 sensor.
+     * This method checks the sensor's chip ID and configures
+     * the sensor for normal operation.
+     *
+     * @return 0 on success, or a negative error code on failure.
+     */
     int Init();
 
+    /**
+     * @brief Oversampling settings for pressure and temperature.
+     * This enum defines the available oversampling options for the BMP580 sensor.
+     */
     enum class Oversampling : uint8_t
     {
         X1 = 0x00,
@@ -130,10 +166,21 @@ public:
         X128 = 0x07
     };
 
+    /**
+     * @brief Set the oversampling settings for pressure and temperature.
+     * This method configures the oversampling settings for both pressure and temperature measurements.
+     *
+     * @param osr_p Oversampling setting for pressure.
+     * @param osr_t Oversampling setting for temperature.
+     */
     void SetOversampling(Oversampling osr_p, Oversampling osr_t);
 
     void SetDataRate(uint8_t odr);
 
+    /**
+     * @brief Result structure for BMP580 sensor readings.
+     * This structure holds the raw and converted sensor data.
+     */
     struct Result {
         Result(int32_t raw_temp, int32_t raw_press);
         float pressure;
@@ -147,10 +194,30 @@ public:
         float GetAltitude(float sea_level_pressure = 101325.0f) const;
     };
 
+    /**
+     * @brief Read raw data from the BMP580 sensor.
+     * This method reads the raw pressure and temperature data from the sensor.
+     *
+     * @return Result structure containing the raw and converted sensor data.
+     */
     Result ReadData();
 
+    /**
+     * @brief Wait for new data to be ready and read it.
+     * This method blocks until new data is available, then reads the raw pressure and temperature data.
+     *
+     * @return Result structure containing the raw and converted sensor data.
+     */
     virtual Result WaitForData();
 
+    /**
+     * @brief Check if new data is ready.
+     * This method checks the sensor's status register to determine if new data is available.
+     * Overrides of this method should implement the specific logic for checking data readiness
+     * based on the interface used (I2C or SPI).
+     *
+     * @return true if new data is ready, false otherwise.
+     */
     virtual bool IsDataReady();
 protected:
     BMP580_InterfaceBase& ifs_;
