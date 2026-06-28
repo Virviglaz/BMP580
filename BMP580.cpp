@@ -45,6 +45,7 @@
 
 #include "BMP580.h"
 #include <errno.h>
+#include <cmath>
 #include <cstring>
 #include <stdexcept>
 
@@ -116,12 +117,14 @@ void BMP580_SPI_Interface::Read(const uint8_t *reg_addr,
     memcpy(data, buffer + 2, length); // Copy the read buffer to the temporary buffer
 }
 
-void BMP580_Base::Reset()
+template <typename T, typename P>
+void BMP580_Base<T, P>::Reset()
 {
     ifs_.WriteReg(REG_CMD, CMD_SOFT_RESET);
 }
 
-int BMP580_Base::Init()
+template <typename T, typename P>
+int BMP580_Base<T, P>::Init()
 {
     /* Check the chip ID */
     uint8_t chip_id = ifs_.ReadReg(REG_CHIP_ID);
@@ -134,7 +137,9 @@ int BMP580_Base::Init()
     return 0;
 }
 
-void BMP580_Base::SetOversampling(BMP580_Base::Oversampling osr_p, BMP580_Base::Oversampling osr_t)
+template <typename T, typename P>
+void BMP580_Base<T, P>::SetOversampling(typename BMP580_Base<T, P>::Oversampling osr_p,
+                                        typename BMP580_Base<T, P>::Oversampling osr_t)
 {
     const uint8_t PRESS_OS_POS = 3;
     const uint8_t PRESS_EN_MSK = 0x40;
@@ -145,7 +150,8 @@ void BMP580_Base::SetOversampling(BMP580_Base::Oversampling osr_p, BMP580_Base::
     ifs_.WriteReg(BMP580_OSR, current_osr);
 }
 
-void BMP580_Base::SetDataRate(uint8_t odr)
+template <typename T, typename P>
+void BMP580_Base<T, P>::SetDataRate(uint8_t odr)
 {
     const uint8_t ODR_MSK = 0x7C;
     const uint8_t ODR_POS = 2;
@@ -158,7 +164,8 @@ void BMP580_Base::SetDataRate(uint8_t odr)
     ifs_.WriteReg(BMP580_ODR, current_odr_config);
 }
 
-BMP580_Base::Result BMP580_Base::ReadData()
+template <typename T, typename P>
+typename BMP580_Base<T, P>::Result BMP580_Base<T, P>::ReadData()
 {
     const uint8_t REG_TEMP_XLSB = 0x1D;
     uint8_t raw_buffer[6];
@@ -179,27 +186,35 @@ BMP580_Base::Result BMP580_Base::ReadData()
     return Result(raw_temp, raw_press);
 }
 
-BMP580_Base::Result BMP580_Base::WaitForData()
+template <typename T, typename P>
+typename BMP580_Base<T, P>::Result BMP580_Base<T, P>::WaitForData()
 {
     while (!IsDataReady()) { }
     return ReadData();
 }
 
-bool BMP580_Base::IsDataReady()
+template <typename T, typename P>
+bool BMP580_Base<T, P>::IsDataReady()
 {
     return (ifs_.ReadReg(REG_INT_STATUS) & BIT(0));
 }
 
-BMP580_Base::Result::Result(int32_t raw_temp, int32_t raw_press)
+template <typename T, typename P>
+BMP580_Base<T, P>::Result::Result(int32_t raw_temp, int32_t raw_press)
 {
     // BMP58x provides linearized values directly in fixed-point format.
-    temperature = static_cast<float>(raw_temp) / 65536.0f;
-    pressure = static_cast<float>(raw_press) / 64.0f;
+    temperature = static_cast<T>(raw_temp) / static_cast<T>(65536.0);
+    pressure = static_cast<P>(raw_press) / static_cast<P>(64.0);
 }
 
-#include <cmath>
-float BMP580_Base::Result::GetAltitude(float sea_level_pressure) const
+template <typename T, typename P>
+P BMP580_Base<T, P>::Result::GetAltitude(P sea_level_pressure) const
 {
     // Calculate altitude in meters using the barometric formula
-    return (1.0f - powf(pressure / sea_level_pressure, 0.190284f)) * 145366.45f * 0.3048f; // Convert feet to meters
+    return (static_cast<P>(1.0) - static_cast<P>(std::pow(pressure / sea_level_pressure, static_cast<P>(0.190284))))
+           * static_cast<P>(145366.45 * 0.3048); // Convert feet to meters
 }
+
+template class BMP580_Base<float, float>;
+template class BMP580_Base<float, double>;
+template class BMP580_Base<double, double>;

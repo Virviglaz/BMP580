@@ -50,6 +50,7 @@
 #endif
 
 #include "devices.h"
+#include <type_traits>
 
 /**
  * @brief Base class for BMP580 sensor interface.
@@ -127,6 +128,7 @@ private:
  * configure oversampling and data rate,
  * read raw data, and check data readiness.
  */
+template <typename T = float, typename P = double>
 class BMP580_Base
 {
 public:
@@ -183,15 +185,15 @@ public:
      */
     struct Result {
         Result(int32_t raw_temp, int32_t raw_press);
-        float pressure;
-        float temperature;
-        float GetmmHg() const { return pressure * 0.00750062f; } // Convert Pa to mmHg
-        float GetinHg() const { return pressure * 0.0002953f; } // Convert Pa to inHg
-        float GetkPa() const { return pressure * 0.001f; } // Convert Pa to kPa
-        float GetCelsius() const { return temperature; } // Temperature in Celsius
-        float GetFahrenheit() const { return (temperature * 9.0f / 5.0f) + 32.0f; } // Convert Celsius to Fahrenheit
-        float GetKelvin() const { return temperature + 273.15f; } // Convert Celsius to Kelvin
-        float GetAltitude(float sea_level_pressure = 101325.0f) const;
+        P pressure;
+        T temperature;
+        P GetmmHg() const { return pressure * static_cast<P>(0.00750062); } // Convert Pa to mmHg
+        P GetinHg() const { return pressure * static_cast<P>(0.0002953); } // Convert Pa to inHg
+        P GetkPa() const { return pressure * static_cast<P>(0.001); } // Convert Pa to kPa
+        T GetCelsius() const { return temperature; } // Temperature in Celsius
+        T GetFahrenheit() const { return (temperature * static_cast<T>(9.0) / static_cast<T>(5.0)) + static_cast<T>(32.0); } // Convert Celsius to Fahrenheit
+        T GetKelvin() const { return temperature + static_cast<T>(273.15); } // Convert Celsius to Kelvin
+        P GetAltitude(P sea_level_pressure = static_cast<P>(101325.0)) const;
     };
 
     /**
@@ -219,6 +221,11 @@ public:
      * @return true if new data is ready, false otherwise.
      */
     virtual bool IsDataReady();
+
+    static_assert(std::is_floating_point<T>::value,
+                  "Template parameter T must be a floating-point type");
+    static_assert(std::is_floating_point<P>::value,
+                  "Template parameter P must be a floating-point type");
 protected:
     BMP580_InterfaceBase& ifs_;
 };
